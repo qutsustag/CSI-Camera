@@ -15,6 +15,32 @@ import cv2
 import threading
 import numpy as np
 
+import time
+import datetime
+
+# Create class that acts as a countdown
+def countdown(h, m, s):
+ 
+    # Calculate the total number of seconds
+    total_seconds = h * 3600 + m * 60 + s
+ 
+    # While loop that checks if total_seconds reaches zero
+    # If not zero, decrement total time by one second
+    while total_seconds > 0:
+ 
+        # Timer represents time left on countdown
+        timer = datetime.timedelta(seconds = total_seconds)
+        
+        # Prints the time left on the timer
+        print(timer, end="\r")
+ 
+        # Delays the program one second
+        time.sleep(1)
+ 
+        # Reduces total time by one second
+        total_seconds -= 1
+ 
+    print("Bzzzt! The countdown is at zero seconds!")
 
 class CSI_Camera:
 
@@ -126,16 +152,21 @@ def gstreamer_pipeline(
 
 
 def run_cameras():
+
+    h=0; m=0; s=15
+    countdown(h, m, s)
+
     window_title = "Dual CSI Cameras"
     left_camera = CSI_Camera()
     left_camera.open(
         gstreamer_pipeline(
             sensor_id=0,
-            capture_width=1920,
-            capture_height=1080,
+            capture_width=3262,
+            capture_height=2464,
+            framerate=21,
             flip_method=2,
-            display_width=960,
-            display_height=540,
+            display_width=3262,
+            display_height=2464,
         )
     )
     left_camera.start()
@@ -144,38 +175,69 @@ def run_cameras():
     right_camera.open(
         gstreamer_pipeline(
             sensor_id=1,
-            capture_width=1920,
-            capture_height=1080,
+            capture_width=3262,
+            capture_height=2464,
+            framerate=21,
             flip_method=2,
-            display_width=960,
-            display_height=540,
+            display_width=3262,
+            display_height=2464,
         )
     )
     right_camera.start()
 
+    ii = 0
+
+    h=0; m=0; s=10
+    countdown(h, m, s)
+
     if left_camera.video_capture.isOpened() and right_camera.video_capture.isOpened():
 
-        cv2.namedWindow(window_title, cv2.WINDOW_AUTOSIZE)
+#        cv2.namedWindow(window_title, cv2.WINDOW_AUTOSIZE)
 
         try:
             while True:
                 _, left_image = left_camera.read()
                 _, right_image = right_camera.read()
+
                 # Use numpy to place images next to each other
-                camera_images = np.hstack((left_image, right_image)) 
+#                camera_images = np.hstack((left_image, right_image)) 
+#                camera_images = left_image
+                camera_images = right_image
+
                 # Check to see if the user closed the window
                 # Under GTK+ (Jetson Default), WND_PROP_VISIBLE does not work correctly. Under Qt it does
                 # GTK - Substitute WND_PROP_AUTOSIZE to detect if window has been closed by user
-                if cv2.getWindowProperty(window_title, cv2.WND_PROP_AUTOSIZE) >= 0:
-                    cv2.imshow(window_title, camera_images)
+
+                timestr = time.strftime("%Y%m%d-%H%M%S")
+
+#                if cv2.getWindowProperty(window_title, cv2.WND_PROP_AUTOSIZE) >= 0:
+#                    cv2.imshow(window_title, camera_images)
+#                else:
+#                    break
+
+                # This also acts as
+                #keyCode = cv2.waitKey(30) & 0xFF
+                # Stop the program on the ESC key
+                #if keyCode == 27:
+                    #break
+
+                ii += 1
+
+#                if cv2.waitKey(1) & 0xFF == ord('q'):
+                if ii < 7:
+                    save_img_path_org = "/media/liam/878A-A1C61/stereophenocam/imgorg/"
+                    status = cv2.imwrite(save_img_path_org + timestr + '_right.jpg', left_image)
+                    status = cv2.imwrite(save_img_path_org + timestr + '_left.jpg', right_image)
+#        np.savez_compressed(save_img_path_org + timestr + '.npz', depth)
+
+                    np.savez_compressed(save_img_path_org + timestr + '_right.npz', left_image)
+                    np.savez_compressed(save_img_path_org + timestr + '_left.npz', right_image)
+
+                    print("Image written to file-system: ", status)
                 else:
                     break
 
-                # This also acts as
-                keyCode = cv2.waitKey(30) & 0xFF
-                # Stop the program on the ESC key
-                if keyCode == 27:
-                    break
+
         finally:
 
             left_camera.stop()
